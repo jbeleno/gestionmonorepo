@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import "../styles/LoginRegister.css";
 
 function LoginRegister() {
@@ -35,9 +36,13 @@ function LoginRegister() {
       });
       if (res.ok) {
         const data = await res.json();
+        localStorage.setItem("token", data.access_token);
+        // Decodificar el token para obtener datos del usuario
+        const decoded = jwtDecode(data.access_token);
         localStorage.setItem("usuario", JSON.stringify({
-          id: data.id_usuario,
-          rol: data.rol
+          id: decoded.id_usuario,
+          correo: decoded.sub,
+          rol: decoded.rol
         }));
         navigate("/");
       } else if (res.status === 401) {
