@@ -84,8 +84,10 @@ function Carrito() {
   // Renderizar los botones de PayPal cuando el SDK esté cargado
   useEffect(() => {
     if (!paypalLoaded || detalles.length === 0 || !total || !paypalRef.current) return;
+    // Guarda la referencia actual
+    const currentPaypalRef = paypalRef.current;
     // Limpiar el contenedor antes de renderizar
-    paypalRef.current.innerHTML = "";
+    currentPaypalRef.innerHTML = "";
     const paypalButtons = window.paypal.Buttons({
       createOrder: (data, actions) => {
         return actions.order.create({
@@ -124,11 +126,17 @@ function Carrito() {
             })
           });
         }
+        // 2.5 Eliminar los detalles del carrito (vaciar carrito)
+        for (let i = 0; i < detalles.length; i++) {
+          await fetch(`http://127.0.0.1:8000/detalle_carrito/${detalles[i].id_detalle_carrito}`, {
+            method: "DELETE"
+          });
+        }
         // 3. Redirigir a la vista de confirmación
         navigate(`/pedido-confirmado/${pedido.id_pedido}`);
       }
     });
-    paypalButtons.render(paypalRef.current);
+    paypalButtons.render(currentPaypalRef);
 
     // Limpieza al desmontar
     return () => {
@@ -137,7 +145,7 @@ function Carrito() {
       } catch (e) {
         // Silenciar error si el botón ya no existe
       }
-      if (paypalRef.current) paypalRef.current.innerHTML = "";
+      if (currentPaypalRef) currentPaypalRef.innerHTML = "";
     };
   }, [paypalLoaded, detalles, total, productos, navigate]);
 

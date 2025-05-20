@@ -234,12 +234,12 @@ def actualizar_detalle_carrito(detalle_id: int, detalle: schemas.DetalleCarritoC
         raise HTTPException(status_code=404, detail="Detalle de carrito no encontrado")
     return db_detalle
 
-@app.delete("/detalle_carrito/{detalle_id}", response_model=schemas.DetalleCarrito)
+@app.delete("/detalle_carrito/{detalle_id}")
 def eliminar_detalle_carrito(detalle_id: int, db: Session = Depends(get_db)):
     db_detalle = crud.eliminar_detalle_carrito(db, detalle_id)
     if not db_detalle:
         raise HTTPException(status_code=404, detail="Detalle de carrito no encontrado")
-    return db_detalle
+    return {"mensaje": "Eliminado correctamente"}
 
 # Carritos de un cliente
 @app.get("/clientes/{cliente_id}/carritos", response_model=list[schemas.Carrito])

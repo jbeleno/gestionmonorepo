@@ -98,6 +98,13 @@ def crear_detalle_pedido(db: Session, detalle: schemas.DetallePedidoCreate):
         precio_unitario=detalle.precio_unitario,
         subtotal=subtotal
     )
+    # Restar la cantidad al inventario del producto
+    producto = db.query(models.Producto).filter(models.Producto.id_producto == detalle.id_producto).first()
+    if producto:
+        if producto.cantidad >= detalle.cantidad:
+            producto.cantidad -= detalle.cantidad
+        else:
+            raise Exception("No hay suficiente inventario para el producto: {}".format(producto.nombre))
     db.add(db_detalle)
     db.commit()
     db.refresh(db_detalle)

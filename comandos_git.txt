@@ -1,0 +1,72 @@
+Principales comandos de Git y GitHub
+====================================
+
+Configuración inicial
+---------------------
+git config --global user.name "Tu Nombre"
+git config --global user.email "tu@email.com"
+
+Comandos básicos de Git
+-----------------------
+# Inicializar un repositorio
+git init
+
+# Clonar un repositorio existente
+git clone URL_DEL_REPOSITORIO
+
+# Ver el estado de los archivos
+git status
+
+# Agregar archivos al área de preparación (staging)
+git add archivo.txt
+git add .           # Agrega todos los archivos
+
+# Confirmar (commit) los cambios
+git commit -m "Mensaje descriptivo del cambio"
+
+# Ver el historial de commits
+git log
+
+Trabajo con ramas
+-----------------
+# Listar ramas
+git branch
+
+# Crear una nueva rama
+git branch nombre_rama
+
+# Cambiar de rama
+git checkout nombre_rama
+
+# Crear y cambiar a una nueva rama
+git checkout -b nombre_rama
+
+# Fusionar una rama a la actual
+git merge nombre_rama
+
+Sincronización con GitHub
+------------------------
+# Ver los remotos configurados
+git remote -v
+
+# Agregar un remoto
+git remote add origin URL_DEL_REPOSITORIO
+
+# Enviar cambios al repositorio remoto
+git push origin main
+# O para la rama actual:
+git push origin nombre_rama
+
+# Obtener cambios del remoto
+git pull origin main
+
+Otros útiles
+------------
+# Eliminar un archivo del control de versiones
+git rm archivo.txt
+
+# Restaurar un archivo modificado
+git checkout -- archivo.txt
+
+# Ver diferencias entre archivos
+git diff

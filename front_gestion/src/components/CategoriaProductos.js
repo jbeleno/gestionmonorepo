@@ -68,6 +68,21 @@ function CategoriaProductos() {
             style={{ cursor: "pointer" }}
             onClick={() => navigate(`/producto/${producto.id_producto}`)}
           >
+            <div style={{
+              width: '100%',
+              height: '100px',
+              background: '#eee',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '10px',
+              borderRadius: '8px',
+              color: '#888',
+              fontWeight: 'bold',
+              fontSize: '1.1em'
+            }}>
+              Imagen
+            </div>
             <h3 className="categoria-producto-nombre">{producto.nombre}</h3>
             <p className="categoria-producto-precio">${producto.precio}</p>
           </motion.div>
