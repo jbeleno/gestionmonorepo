@@ -13,7 +13,7 @@ class Usuario(UsuarioBase):
     id_usuario: int
     fecha_creacion: datetime
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ClienteBase(BaseModel):
     nombre: str
@@ -29,7 +29,7 @@ class Cliente(ClienteBase):
     fecha_registro: datetime
     usuario: Usuario
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CategoriaBase(BaseModel):
     descripcion_corta: str
@@ -43,7 +43,7 @@ class CategoriaCreate(CategoriaBase):
 class Categoria(CategoriaBase):
     id_categoria: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProductoBase(BaseModel):
     id_categoria: int
@@ -61,7 +61,7 @@ class Producto(ProductoBase):
     id_producto: int
     categoria: Categoria
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PedidoBase(BaseModel):
     id_cliente: int
@@ -77,7 +77,7 @@ class Pedido(PedidoBase):
     fecha_pedido: datetime
     cliente: Cliente
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DetallePedidoBase(BaseModel):
     id_pedido: int
@@ -94,7 +94,7 @@ class DetallePedido(DetallePedidoBase):
     pedido: Pedido
     producto: Producto
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CarritoBase(BaseModel):
     id_cliente: int
@@ -108,7 +108,7 @@ class Carrito(CarritoBase):
     fecha_creacion: datetime
     cliente: Cliente
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DetalleCarritoBase(BaseModel):
     id_carrito: int
@@ -126,4 +126,4 @@ class DetalleCarrito(DetalleCarritoBase):
     carrito: Carrito
     producto: Producto
     class Config:
-        orm_mode = True
+        from_attributes = True
