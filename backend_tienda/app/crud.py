@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import datetime
+from .auth import hash_password
 
 def get_usuario(db: Session, usuario_id: int):
     return db.query(models.Usuario).filter(models.Usuario.id_usuario == usuario_id).first()
@@ -11,7 +12,7 @@ def get_usuario_por_correo(db: Session, correo: str):
 def crear_usuario(db: Session, usuario: schemas.UsuarioCreate):
     db_usuario = models.Usuario(
         correo=usuario.correo,
-        contraseña=usuario.contraseña,
+        contraseña=hash_password(usuario.contraseña),
         rol=usuario.rol,
         fecha_creacion=datetime.utcnow()
     )

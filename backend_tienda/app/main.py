@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from . import models, schemas, crud
 from .database import SessionLocal, engine
-from .auth import crear_token_de_acceso, get_current_user
+from .auth import crear_token_de_acceso, get_current_user, verify_password
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -259,7 +259,7 @@ def login(datos: dict = Body(...), db: Session = Depends(get_db)):
     correo = datos.get("correo")
     contraseña = datos.get("contraseña")
     usuario = crud.get_usuario_por_correo(db, correo=correo)
-    if not usuario or usuario.contraseña != contraseña:
+    if not usuario or not verify_password(contraseña, usuario.contraseña):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     # Crear el token
     token = crear_token_de_acceso({"sub": usuario.correo, "id_usuario": usuario.id_usuario, "rol": usuario.rol})
