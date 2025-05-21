@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "../styles/AdminCuenta.css";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../config/supabase";
 
 const ESTADOS = [
   "Pago confirmado",
@@ -13,6 +14,7 @@ const ESTADOS = [
 function AdminCuenta() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("productos");
+  const [uploading, setUploading] = useState(false);
 
   // Productos
   const [productos, setProductos] = useState([]);
@@ -20,6 +22,7 @@ function AdminCuenta() {
   const [nuevoProducto, setNuevoProducto] = useState({ nombre: "", descripcion: "", cantidad: 0, precio: 0, id_categoria: "", imagen_url: "" });
   const [editandoProducto, setEditandoProducto] = useState(null);
   const [productoEdit, setProductoEdit] = useState({});
+  const [selectedFile, setSelectedFile] = useState(null);
 
   // Categorías
   const [nuevaCategoria, setNuevaCategoria] = useState({ nombre: "", descripcion_corta: "", descripcion_larga: "" });
@@ -59,32 +62,161 @@ function AdminCuenta() {
     }
   }, [filtroEstado]);
 
+  // Función para subir imagen a Supabase
+  const uploadImage = async (file, id_producto) => {
+    try {
+      setUploading(true);
+      
+      // Usar el formato con doble barra en la ruta
+      const fileName = `//producto_${id_producto}.jpg`;
+      const filePath = fileName;
+
+      // Subir archivo a Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('productos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Obtener la URL pública sin timestamp
+      const { data } = supabase.storage
+        .from('productos')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error al subir la imagen:', error);
+      alert('Error al subir la imagen');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Manejador para el cambio de archivo
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
   // CRUD Productos
   const handleCrearProducto = async e => {
     e.preventDefault();
+    
+    // 1. Crear el producto primero para obtener el id
     const res = await fetch("http://127.0.0.1:8000/productos/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nuevoProducto)
+      body: JSON.stringify({ ...nuevoProducto, imagen_url: "" })
     });
+
     if (res.ok) {
       const prod = await res.json();
-      setProductos([...productos, prod]);
-      setNuevoProducto({ nombre: "", descripcion: "", cantidad: 0, precio: 0, id_categoria: "", imagen_url: "" });
+      
+      // 2. Si hay archivo, subirlo con el id del producto
+      let imagenUrl = "";
+      if (selectedFile) {
+        imagenUrl = await uploadImage(selectedFile, prod.id_producto);
+        if (!imagenUrl) {
+          // Si falla la subida de la imagen, eliminar el producto creado
+          await fetch(`http://127.0.0.1:8000/productos/${prod.id_producto}`, { method: "DELETE" });
+          return;
+        }
+        
+        // Actualizar el producto con la url de la imagen
+        const updateRes = await fetch(`http://127.0.0.1:8000/productos/${prod.id_producto}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...prod, imagen_url: imagenUrl })
+        });
+        
+        if (updateRes.ok) {
+          const updatedProd = await updateRes.json();
+          setProductos([...productos, updatedProd]);
+        }
+      } else {
+        setProductos([...productos, prod]);
+      }
+
+      setNuevoProducto({ 
+        nombre: "", 
+        descripcion: "", 
+        cantidad: 0, 
+        precio: 0, 
+        id_categoria: "", 
+        imagen_url: "" 
+      });
+      setSelectedFile(null);
     }
   };
 
   const handleActualizarProducto = async id => {
-    const res = await fetch(`http://127.0.0.1:8000/productos/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(productoEdit)
-    });
-    if (res.ok) {
-      const actualizado = await res.json();
-      setProductos(productos.map(p => p.id_producto === id ? actualizado : p));
-      setEditandoProducto(null);
-      setProductoEdit({});
+    try {
+      let imagenUrl = productoEdit.imagen_url;
+      
+      // Si hay un archivo seleccionado, eliminar la imagen antigua y subir la nueva
+      if (selectedFile) {
+        // 1. Eliminar la imagen antigua si existe
+        if (productoEdit.imagen_url) {
+          // Intentar eliminar con diferentes extensiones comunes
+          const extensions = ['.jpg', '.jpeg', '.png', '.gif'];
+          const baseFileName = `//producto_${id}`;
+          
+          // Crear array de nombres de archivo a eliminar
+          const filesToDelete = extensions.map(ext => `${baseFileName}${ext}`);
+          
+          // Eliminar todos los posibles archivos
+          const { error: deleteError } = await supabase.storage
+            .from('productos')
+            .remove(filesToDelete);
+
+          if (deleteError) {
+            console.error('Error al eliminar la imagen antigua:', deleteError);
+          }
+        }
+
+        // 2. Subir la nueva imagen
+        imagenUrl = await uploadImage(selectedFile, id);
+        if (!imagenUrl) {
+          alert('Error al subir la imagen');
+          return;
+        }
+      }
+
+      const productoData = {
+        ...productoEdit,
+        imagen_url: imagenUrl
+      };
+
+      const res = await fetch(`http://127.0.0.1:8000/productos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(productoData)
+      });
+
+      if (res.ok) {
+        const actualizado = await res.json();
+        // Actualizar la lista de productos
+        setProductos(productos.map(p => p.id_producto === id ? actualizado : p));
+        setEditandoProducto(null);
+        setProductoEdit({});
+        setSelectedFile(null);
+        
+        // Recargar la lista completa de productos para asegurar que todo está actualizado
+        const productosRes = await fetch("http://127.0.0.1:8000/productos/");
+        if (productosRes.ok) {
+          const productosActualizados = await productosRes.json();
+          setProductos(productosActualizados);
+        }
+      } else {
+        alert('Error al actualizar el producto');
+      }
+    } catch (error) {
+      console.error('Error al actualizar el producto:', error);
+      alert('Error al actualizar el producto');
     }
   };
 
@@ -101,8 +233,50 @@ function AdminCuenta() {
   };
 
   const handleEliminarProducto = async id => {
-    await fetch(`http://127.0.0.1:8000/productos/${id}`, { method: "DELETE" });
-    setProductos(productos.filter(p => p.id_producto !== id));
+    try {
+      // 1. Obtener el producto del estado actual
+      const producto = productos.find(p => p.id_producto === id);
+      if (!producto) throw new Error('Producto no encontrado');
+
+      // 2. Si el producto tiene una imagen, eliminarla de Supabase
+      if (producto.imagen_url) {
+        console.log('Intentando eliminar imagen para producto:', id);
+        console.log('URL de la imagen:', producto.imagen_url);
+
+        // Construir el nombre del archivo sin las barras iniciales
+        const fileName = `producto_${id}.jpg`;
+        console.log('Nombre del archivo a eliminar:', fileName);
+
+        // Intentar eliminar el archivo
+        const { data, error: deleteError } = await supabase.storage
+          .from('productos')
+          .remove([fileName]);
+
+        if (deleteError) {
+          console.error('Error al eliminar la imagen:', deleteError);
+          throw new Error('Error al eliminar la imagen del producto: ' + deleteError.message);
+        }
+
+        console.log('Resultado de la eliminación:', data);
+      }
+
+      // 3. Eliminar el producto de la base de datos
+      const deleteRes = await fetch(`http://127.0.0.1:8000/productos/${id}`, { 
+        method: "DELETE" 
+      });
+      
+      if (!deleteRes.ok) throw new Error('Error al eliminar el producto');
+
+      // 4. Actualizar la lista de productos
+      const productosRes = await fetch("http://127.0.0.1:8000/productos/");
+      if (productosRes.ok) {
+        const productosActualizados = await productosRes.json();
+        setProductos(productosActualizados);
+      }
+    } catch (error) {
+      console.error('Error al eliminar el producto:', error);
+      alert('Error al eliminar el producto: ' + error.message);
+    }
   };
 
   // CRUD Categorías
@@ -224,16 +398,58 @@ function AdminCuenta() {
             />
           </div>
           <form onSubmit={handleCrearProducto} className="admin-form">
-            <input value={nuevoProducto.nombre} onChange={e => setNuevoProducto({ ...nuevoProducto, nombre: e.target.value })} placeholder="Nombre" required />
-            <input value={nuevoProducto.descripcion} onChange={e => setNuevoProducto({ ...nuevoProducto, descripcion: e.target.value })} placeholder="Descripción" required />
-            <input type="number" value={nuevoProducto.cantidad} onChange={e => setNuevoProducto({ ...nuevoProducto, cantidad: Number(e.target.value) })} placeholder="Cantidad" required />
-            <input type="number" value={nuevoProducto.precio} onChange={e => setNuevoProducto({ ...nuevoProducto, precio: Number(e.target.value) })} placeholder="Precio" required />
-            <select value={nuevoProducto.id_categoria} onChange={e => setNuevoProducto({ ...nuevoProducto, id_categoria: Number(e.target.value) })} required>
+            <input 
+              value={nuevoProducto.nombre} 
+              onChange={e => setNuevoProducto({ ...nuevoProducto, nombre: e.target.value })} 
+              placeholder="Nombre" 
+              required 
+            />
+            <input 
+              value={nuevoProducto.descripcion} 
+              onChange={e => setNuevoProducto({ ...nuevoProducto, descripcion: e.target.value })} 
+              placeholder="Descripción" 
+              required 
+            />
+            <input 
+              type="number" 
+              value={nuevoProducto.cantidad} 
+              onChange={e => setNuevoProducto({ ...nuevoProducto, cantidad: Number(e.target.value) })} 
+              placeholder="Cantidad" 
+              required 
+            />
+            <input 
+              type="number" 
+              value={nuevoProducto.precio} 
+              onChange={e => setNuevoProducto({ ...nuevoProducto, precio: Number(e.target.value) })} 
+              placeholder="Precio" 
+              required 
+            />
+            <select 
+              value={nuevoProducto.id_categoria} 
+              onChange={e => setNuevoProducto({ ...nuevoProducto, id_categoria: Number(e.target.value) })} 
+              required
+            >
               <option value="">Categoría</option>
               {categorias.map(cat => <option key={cat.id_categoria} value={cat.id_categoria}>{cat.nombre}</option>)}
             </select>
-            <input value={nuevoProducto.imagen_url} onChange={e => setNuevoProducto({ ...nuevoProducto, imagen_url: e.target.value })} placeholder="URL Imagen" />
-            <button type="submit">Crear producto</button>
+            <div className="image-upload-container">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                id="image-upload"
+              />
+              <label htmlFor="image-upload" className="upload-button">
+                {selectedFile ? 'Cambiar imagen' : 'Seleccionar imagen'}
+              </label>
+              {selectedFile && (
+                <span className="file-name">{selectedFile.name}</span>
+              )}
+            </div>
+            <button type="submit" disabled={uploading}>
+              {uploading ? 'Subiendo...' : 'Crear producto'}
+            </button>
           </form>
           <ul>
             {productos
@@ -250,12 +466,28 @@ function AdminCuenta() {
                         <input value={productoEdit.descripcion} onChange={e => setProductoEdit({ ...productoEdit, descripcion: e.target.value })} />
                         <input type="number" value={productoEdit.precio} onChange={e => setProductoEdit({ ...productoEdit, precio: Number(e.target.value) })} />
                         <input type="number" value={productoEdit.cantidad} onChange={e => setProductoEdit({ ...productoEdit, cantidad: Number(e.target.value) })} />
-                        <input value={productoEdit.imagen_url} onChange={e => setProductoEdit({ ...productoEdit, imagen_url: e.target.value })} />
+                        <div className="image-upload-container">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            style={{ display: 'none' }}
+                            id={`image-upload-${prod.id_producto}`}
+                          />
+                          <label htmlFor={`image-upload-${prod.id_producto}`} className="upload-button">
+                            {selectedFile ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                          </label>
+                          {selectedFile && (
+                            <span className="file-name">{selectedFile.name}</span>
+                          )}
+                        </div>
                         <select value={productoEdit.id_categoria} onChange={e => setProductoEdit({ ...productoEdit, id_categoria: Number(e.target.value) })}>
                           <option value="">Categoría</option>
                           {categorias.map(cat => <option key={cat.id_categoria} value={cat.id_categoria}>{cat.nombre}</option>)}
                         </select>
-                        <button className="admin-btn-morado" onClick={() => handleActualizarProducto(prod.id_producto)}>Guardar</button>
+                        <button className="admin-btn-morado" onClick={() => handleActualizarProducto(prod.id_producto)} disabled={uploading}>
+                          {uploading ? 'Subiendo...' : 'Guardar'}
+                        </button>
                         <button className="admin-btn-morado" onClick={() => handleEliminarProducto(prod.id_producto)} style={{marginLeft: '0.7rem'}}>Eliminar</button>
                         <button onClick={() => setEditandoProducto(null)} style={{marginLeft: '0.7rem'}}>Cancelar</button>
                       </>
@@ -271,7 +503,11 @@ function AdminCuenta() {
                   </div>
                   {prod.imagen_url && (
                     <div className="admin-producto-img">
-                      <img src={prod.imagen_url} alt={prod.nombre} style={{maxWidth: '120px', maxHeight: '120px', borderRadius: '8px', objectFit: 'cover'}} />
+                      <img 
+                        src={`${prod.imagen_url}?t=${new Date().getTime()}`} 
+                        alt={prod.nombre} 
+                        style={{maxWidth: '120px', maxHeight: '120px', borderRadius: '8px', objectFit: 'cover'}}
+                      />
                     </div>
                   )}
                 </li>

@@ -98,8 +98,15 @@ function VistaProducto() {
   return (
     <div className="vista-producto-container">
       <div className="vista-producto-img">
-        {/* Aquí irá la imagen del producto */}
-        <div className="vista-producto-img-placeholder">Imagen</div>
+        {producto.imagen_url ? (
+          <img
+            src={producto.imagen_url}
+            alt={producto.nombre}
+            style={{ maxWidth: "250px", maxHeight: "250px", borderRadius: "10px", objectFit: "cover" }}
+          />
+        ) : (
+          <div className="vista-producto-img-placeholder">Imagen</div>
+        )}
       </div>
       <div className="vista-producto-info">
         <h1>{producto.nombre}</h1>

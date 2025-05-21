@@ -137,12 +137,12 @@ def actualizar_producto(producto_id: int, producto: schemas.ProductoCreate, db: 
         raise HTTPException(status_code=404, detail="Producto no encontrado")
     return db_producto
 
-@app.delete("/productos/{producto_id}", response_model=schemas.Producto)
-def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
-    db_producto = crud.eliminar_producto(db, producto_id)
+@app.delete("/productos/{id}")
+def eliminar_producto(id: int, db: Session = Depends(get_db)):
+    db_producto = crud.eliminar_producto(db, id)
     if not db_producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
-    return db_producto
+    return {"mensaje": "Producto eliminado correctamente"}
 
 # Pedidos - Editar y Eliminar
 @app.put("/pedidos/{pedido_id}", response_model=schemas.Pedido)
